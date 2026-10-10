@@ -11,7 +11,7 @@ export const generateNotes = async (
 ) => {
   if (!apiKey) throw new Error('Gemini API key is missing. Add VITE_GEMINI_API_KEY to your .env file.');
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
   
   let parts: (string | Part)[] = [];
   
@@ -50,7 +50,7 @@ export const generateFlashcards = async (notesContent: string) => {
   if (!apiKey) throw new Error('API key missing');
   
   const model = genAI.getGenerativeModel({ 
-    model: 'gemini-1.5-flash',
+    model: 'gemini-flash-latest',
     generationConfig: { responseMimeType: "application/json" }
   });
   
@@ -75,7 +75,7 @@ export const generateQuiz = async (notesContent: string) => {
   if (!apiKey) throw new Error('API key missing');
   
   const model = genAI.getGenerativeModel({ 
-    model: 'gemini-1.5-flash',
+    model: 'gemini-flash-latest',
     generationConfig: { responseMimeType: "application/json" }
   });
   
@@ -104,7 +104,7 @@ ${notesContent}`;
 export const chatWithNotes = async (notesContent: string, history: {role: string, text: string}[], message: string) => {
   if (!apiKey) throw new Error('API key missing');
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
   
   const systemInstruction = `You are a helpful study assistant. Answer the user's questions strictly based on the provided notes content. If the answer is not in the notes, say "I cannot find the answer to that in your notes."
   

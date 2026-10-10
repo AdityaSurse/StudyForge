@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Note } from '../types';
 import { chatWithNotes } from '../lib/gemini';
-import { Send, X, Bot, Loader2 } from 'lucide-react';
+import { Send, X, Bot, Loader2, Sparkles, User } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface ChatPanelProps {
   note: Note;
@@ -15,7 +16,7 @@ interface Message {
 
 export function ChatPanel({ note, onClose }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'model', text: 'Hi! I am your study assistant for this note. Ask me anything about the content!' }
+    { role: 'model', text: 'Hi! I am your AI study assistant. I have full context on **' + note.title + '**. What would you like to know?' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +40,7 @@ export function ChatPanel({ note, onClose }: ChatPanelProps) {
     setIsLoading(true);
 
     try {
-      const history = messages.slice(1); // skip the initial greeting
+      const history = messages.slice(1);
       const response = await chatWithNotes(note.content, history, userMessage);
       
       setMessages(prev => [...prev, { role: 'model', text: response }]);
@@ -51,32 +52,59 @@ export function ChatPanel({ note, onClose }: ChatPanelProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-card">
-      <div className="p-4 border-b flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <Bot className="text-primary-500" size={20} />
-          <h3 className="font-semibold text-sm">Study Assistant</h3>
+    <div className="h-full flex flex-col bg-transparent md:bg-card/50">
+      <div className="p-4 border-b flex items-center justify-between shrink-0 bg-card">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+            <Sparkles size={16} />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-foreground">Study Assistant</h3>
+            <p className="text-xs text-muted-foreground">Always ready to help</p>
+          </div>
         </div>
         <button 
           onClick={onClose}
-          className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors"
+          className="p-2 rounded-xl hover:bg-muted text-muted-foreground transition-colors md:hidden"
         >
-          <X size={16} />
+          <X size={18} />
+        </button>
+        <button 
+          onClick={onClose}
+          className="p-2 rounded-xl hover:bg-muted text-muted-foreground transition-colors hidden md:flex"
+        >
+          <X size={18} />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin">
         {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] rounded-2xl p-3 text-sm ${msg.role === 'user' ? 'bg-primary-600 text-white rounded-br-none' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-none'}`}>
-              <div className="whitespace-pre-wrap">{msg.text}</div>
+          <div key={idx} className={`flex gap-3 max-w-[95%] ${msg.role === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
+            
+            <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center ${msg.role === 'user' ? 'bg-primary-500 text-white' : 'bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400'}`}>
+              {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
+            </div>
+            
+            <div className={`p-4 text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-primary-500 text-white rounded-2xl rounded-tr-sm' : 'bg-card border rounded-2xl rounded-tl-sm text-foreground'}`}>
+              {msg.role === 'user' ? (
+                <div className="whitespace-pre-wrap">{msg.text}</div>
+              ) : (
+                <div className="prose prose-sm prose-slate dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-muted prose-pre:text-foreground">
+                  <ReactMarkdown>{msg.text}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}
         {isLoading && (
-          <div className="flex justify-start">
-            <div className="max-w-[85%] rounded-2xl rounded-bl-none p-3 bg-slate-100 dark:bg-slate-800 text-slate-500">
-              <Loader2 size={16} className="animate-spin" />
+          <div className="flex gap-3 max-w-[95%]">
+            <div className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center bg-primary-100 dark:bg-primary-900/50 text-primary-600 dark:text-primary-400">
+              <Bot size={16} />
+            </div>
+            <div className="p-4 bg-card border rounded-2xl rounded-tl-sm flex gap-1.5 items-center">
+              <div className="w-2 h-2 rounded-full bg-primary-500/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 rounded-full bg-primary-500/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 rounded-full bg-primary-500/50 animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
           </div>
         )}
@@ -89,14 +117,14 @@ export function ChatPanel({ note, onClose }: ChatPanelProps) {
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about your notes..." 
-            className="w-full bg-slate-100 dark:bg-slate-800 rounded-full pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all"
+            placeholder="Ask a question..." 
+            className="w-full bg-muted rounded-2xl pl-4 pr-12 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:bg-background border border-transparent focus:border-border transition-all shadow-sm"
             disabled={isLoading}
           />
           <button 
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 p-2 rounded-full bg-primary-600 text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-700 transition-colors"
+            className="absolute right-2 p-2 rounded-xl bg-primary-500 text-white disabled:opacity-50 disabled:bg-muted-foreground disabled:text-background hover:bg-primary-600 transition-colors shadow-sm active:scale-95"
           >
             <Send size={16} />
           </button>
