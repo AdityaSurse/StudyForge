@@ -224,14 +224,13 @@ function ActionCard({ icon, title, description, onClick, delay }: any) {
     <div 
       onClick={onClick}
       className={`bg-zinc-900/70 backdrop-blur-md border border-white/10 rounded-2xl p-6 cursor-pointer hover:-translate-y-1 hover:shadow-xl hover:border-primary-400/50 transition-all duration-300 animate-in fade-in slide-in-from-bottom-8 fill-mode-both group`}
-      style={{ animationDelay: \`\${delay}ms\` }}
+      style={{ animationDelay: `${delay}ms` }}
     >
       <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
         {icon}
       </div>
       <h3 className="font-bold text-white text-lg mb-1">{title}</h3>
       <p className="text-sm text-white/70 font-medium">{description}</p>
-    </div>
     </div>
   );
 }
