@@ -3,9 +3,10 @@ import { useDropzone } from 'react-dropzone';
 import { UploadCloud, Type, FileAudio, FileText, Loader2, Video, Search, ChevronRight, Mic } from 'lucide-react';
 import type { Note } from '../types';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.mjs?url';
 
-// Initialize PDF.js worker using unpkg CDN with the current version
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// Initialize PDF.js worker using Vite URL resolution
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface UploadAreaProps {
   onProcess: (content: string, type: 'text' | 'youtube' | 'pdf', file?: File) => Promise<void>;
@@ -63,7 +64,8 @@ export function UploadArea({ onProcess, recentNotes, onNoteClick }: UploadAreaPr
       if (isPdf) {
         setProgressState('Extracting text from PDF...');
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
         let text = '';
         for (let i = 1; i <= pdf.numPages; i++) {
           if (controller.signal.aborted) throw new Error('Aborted');
