@@ -4,6 +4,23 @@ import type { Part } from '@google/generative-ai';
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(apiKey || 'dummy-key');
 
+const generateWithRetry = async (model: any, request: any, retries = 1) => {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      return await model.generateContent(request);
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (i < retries && (msg.includes('429') || msg.includes('503') || msg.includes('overloaded'))) {
+        await new Promise(r => setTimeout(r, 2000 * (i + 1))); // backoff
+        continue;
+      }
+      if (msg.includes('400')) throw new Error('The AI rejected the input. The file might be too large or contain blocked content.');
+      if (msg.includes('429')) throw new Error('AI rate limit exceeded. Please try again later.');
+      throw new Error(msg || 'An unknown AI error occurred.');
+    }
+  }
+};
+
 export const generateNotes = async (
   content: string,
   _type: 'text' | 'youtube' | 'pdf',
@@ -32,7 +49,7 @@ ${content}`;
   if (audioFile) {
     const base64Data = await fileToBase64(audioFile);
     parts = [
-      `You are an expert AI study assistant. Create comprehensive, well-structured study notes from the attached file. Follow the same Markdown and formatting requirements as for text.`,
+      `You are an expert AI study assistant. Create comprehensive, well-structured study notes from the attached audio file. Follow the same Markdown and formatting requirements as for text.`,
       {
         inlineData: {
           data: base64Data.split(',')[1],
@@ -42,7 +59,7 @@ ${content}`;
     ];
   }
 
-  const result = await model.generateContent(parts);
+  const result = await generateWithRetry(model, parts);
   return result.response.text();
 };
 
@@ -60,7 +77,7 @@ Output strictly in JSON format as an array of objects, with each object having e
 Notes:
 ${notesContent}`;
 
-  const result = await model.generateContent(prompt);
+  const result = await generateWithRetry(model, prompt);
   const text = result.response.text();
   try {
     const data = JSON.parse(text);
@@ -90,7 +107,7 @@ Output strictly in JSON format as an object with a "questions" array property. E
 Notes:
 ${notesContent}`;
 
-  const result = await model.generateContent(prompt);
+  const result = await generateWithRetry(model, prompt);
   const text = result.response.text();
   try {
     const data = JSON.parse(text);

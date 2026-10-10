@@ -2,6 +2,10 @@ import { useState, useCallback, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, Type, FileAudio, FileText, Loader2, Video, Search, ChevronRight, Mic } from 'lucide-react';
 import type { Note } from '../types';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Initialize PDF.js worker using unpkg CDN with the current version
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface UploadAreaProps {
   onProcess: (content: string, type: 'text' | 'youtube' | 'pdf', file?: File) => Promise<void>;
@@ -13,14 +17,39 @@ export function UploadArea({ onProcess, recentNotes, onNoteClick }: UploadAreaPr
   const [activeModal, setActiveModal] = useState<'upload' | 'text' | null>(null);
   const [textInput, setTextInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [progressState, setProgressState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const handleCancel = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsProcessing(false);
+    setProgressState(null);
+    setError('Request was cancelled.');
+  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
 
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File is too large. Maximum size is 10MB.');
+      return;
+    }
+
     setIsProcessing(true);
+    setProgressState('Reading file...');
     setError(null);
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    
+    // 60-second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     try {
       const isPdf = file.type === 'application/pdf';
       const isAudio = file.type.startsWith('audio/');
@@ -29,12 +58,42 @@ export function UploadArea({ onProcess, recentNotes, onNoteClick }: UploadAreaPr
         throw new Error('Unsupported file type. Please upload PDF or Audio files.');
       }
 
-      await onProcess(file.name, isPdf ? 'pdf' : 'text', file);
-    } catch (err: any) {
-      setError(err.message || 'Failed to process file');
-    } finally {
-      setIsProcessing(false);
+      let contentToProcess = file.name;
+
+      if (isPdf) {
+        setProgressState('Extracting text from PDF...');
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          if (controller.signal.aborted) throw new Error('Aborted');
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((item: any) => item.str).join(' ') + '\n';
+        }
+        contentToProcess = text;
+        setProgressState('Generating your notes...');
+        // Treat as raw text so it avoids base64 encoding a massive PDF payload to Gemini
+        await onProcess(contentToProcess, 'text');
+      } else {
+        setProgressState('Generating your notes...');
+        await onProcess(contentToProcess, 'text', file);
+      }
+      
       setActiveModal(null);
+    } catch (err: any) {
+      if (err.name === 'AbortError' || err.message === 'Aborted') {
+        setError('Request timed out after 60s or was cancelled.');
+      } else {
+        setError(err.message || 'Failed to process file');
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      if (abortControllerRef.current === controller) {
+        setIsProcessing(false);
+        setProgressState(null);
+        abortControllerRef.current = null;
+      }
     }
   }, [onProcess]);
 
@@ -49,16 +108,33 @@ export function UploadArea({ onProcess, recentNotes, onNoteClick }: UploadAreaPr
 
   const handleTextSubmit = async () => {
     if (!textInput.trim()) return;
+    
     setIsProcessing(true);
+    setProgressState('Generating your notes...');
     setError(null);
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+
     try {
       const isYoutube = textInput.includes('youtube.com') || textInput.includes('youtu.be');
       await onProcess(textInput, isYoutube ? 'youtube' : 'text');
+      setActiveModal(null);
+      setTextInput('');
     } catch (err: any) {
-      setError(err.message || 'Failed to process text');
+      if (err.name === 'AbortError' || err.message === 'Aborted') {
+        setError('Request timed out after 60s or was cancelled.');
+      } else {
+        setError(err.message || 'Failed to process text');
+      }
     } finally {
-      setIsProcessing(false);
-      if (!error) setActiveModal(null);
+      clearTimeout(timeoutId);
+      if (abortControllerRef.current === controller) {
+        setIsProcessing(false);
+        setProgressState(null);
+        abortControllerRef.current = null;
+      }
     }
   };
 
@@ -157,15 +233,16 @@ export function UploadArea({ onProcess, recentNotes, onNoteClick }: UploadAreaPr
             </div>
 
             {error && (
-              <div className="mb-6 p-4 rounded-xl bg-red-900/40 text-red-400 text-sm border border-red-500/30">
-                {error}
+              <div className="mb-6 p-4 rounded-xl bg-red-900/40 text-red-400 text-sm border border-red-500/30 flex items-center justify-between">
+                <span>{error}</span>
+                <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300 underline text-xs">Try again</button>
               </div>
             )}
 
             {activeModal === 'upload' ? (
               <div 
                 {...getRootProps()} 
-                className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200 ${isDragActive ? 'border-primary-500 bg-primary-500/20' : 'border-white/20 hover:border-primary-400 hover:bg-white/5'}`}
+                className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-200 ${isProcessing ? 'pointer-events-none border-primary-500/50 bg-primary-900/10' : 'cursor-pointer'} ${isDragActive ? 'border-primary-500 bg-primary-500/20' : 'border-white/20 hover:border-primary-400 hover:bg-white/5'}`}
               >
                 <input {...getInputProps()} />
                 <div className="flex justify-center mb-4 text-primary-400">
@@ -173,12 +250,18 @@ export function UploadArea({ onProcess, recentNotes, onNoteClick }: UploadAreaPr
                 </div>
                 <h4 className="text-xl font-bold mb-2">Drag & Drop files</h4>
                 <p className="text-white/60 mb-6 max-w-sm mx-auto">
-                  Supported: PDF, MP3, WAV
+                  Supported: PDF, MP3, WAV (Max 10MB)
                 </p>
-                {isProcessing && (
-                  <div className="mt-6 flex flex-col items-center gap-3 text-primary-400 bg-primary-900/30 p-4 rounded-xl">
+                {isProcessing && progressState && (
+                  <div className="mt-6 flex flex-col items-center gap-3 text-primary-400 bg-primary-900/30 p-4 rounded-xl pointer-events-auto">
                     <Loader2 size={24} className="animate-spin" />
-                    <span className="font-bold animate-pulse">Generating your notes...</span>
+                    <span className="font-bold animate-pulse">{progressState}</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleCancel(); }}
+                      className="mt-2 text-xs bg-red-500/20 text-red-400 px-4 py-1.5 rounded-lg hover:bg-red-500/30 transition-colors"
+                    >
+                      Cancel
+                    </button>
                   </div>
                 )}
               </div>
@@ -198,17 +281,27 @@ export function UploadArea({ onProcess, recentNotes, onNoteClick }: UploadAreaPr
                     <span className="flex items-center gap-1.5"><Type size={14} /> Raw Text</span>
                   </div>
                   
-                  <button 
-                    onClick={handleTextSubmit}
-                    disabled={!textInput.trim() || isProcessing}
-                    className="bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95"
-                  >
-                    {isProcessing ? (
-                      <><Loader2 size={18} className="animate-spin" /> Generating...</>
-                    ) : (
-                      'Generate Notes'
+                  <div className="flex items-center gap-3">
+                    {isProcessing && (
+                      <button 
+                        onClick={handleCancel}
+                        className="text-xs text-red-400 hover:text-red-300 underline"
+                      >
+                        Cancel
+                      </button>
                     )}
-                  </button>
+                    <button 
+                      onClick={handleTextSubmit}
+                      disabled={!textInput.trim() || isProcessing}
+                      className="bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg active:scale-95"
+                    >
+                      {isProcessing ? (
+                        <><Loader2 size={18} className="animate-spin" /> {progressState}</>
+                      ) : (
+                        'Generate Notes'
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
