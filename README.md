@@ -31,13 +31,13 @@
 ---
 
 ## Features
-- 📄 **Multi-format Uploads**: Upload PDFs, audio (MP3/WAV), paste raw text, or provide YouTube transcripts.
-- 📝 **Smart Notes Generation**: Automatically generates Markdown-formatted notes with LaTeX math equations.
-- 🗂️ **Interactive Flashcards**: 3D-flipping flashcard decks with spaced-repetition tracking (Got it / Review again).
-- 🎓 **Quizzes with Confetti**: Auto-generates multiple-choice quizzes with hints, explanations, and score tracking.
-- 💬 **Chat with Notes**: A sliding side panel that lets you query your current notes context directly.
-- 💾 **Client-Side Persistence**: 100% local operation using `localStorage`. No database required.
-- ✨ **Immersive UI**: Features a beautiful, animated WebGL "mesh drift" shader background and glassmorphism cards.
+-  **Multi-format Uploads**: Upload PDFs, audio (MP3/WAV), paste raw text, or provide YouTube transcripts.
+-  **Smart Notes Generation**: Automatically generates Markdown-formatted notes with LaTeX math equations.
+-  **Interactive Flashcards**: 3D-flipping flashcard decks with spaced-repetition tracking (Got it / Review again).
+-  **Quizzes with Confetti**: Auto-generates multiple-choice quizzes with hints, explanations, and score tracking.
+-  **Chat with Notes**: A sliding side panel that lets you query your current notes context directly.
+-  **Client-Side Persistence**: 100% local operation using `localStorage`. No database required.
+-  **Immersive UI**: Features a beautiful, animated WebGL "mesh drift" shader background and glassmorphism cards.
 - 🎤 **Live Audio Recording**: Transcribe live lectures. *(Planned)*
 
 ---
