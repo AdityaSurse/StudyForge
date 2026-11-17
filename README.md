@@ -38,7 +38,7 @@
 -  **Chat with Notes**: A sliding side panel that lets you query your current notes context directly.
 -  **Client-Side Persistence**: 100% local operation using `localStorage`. No database required.
 -  **Immersive UI**: Features a beautiful, animated WebGL "mesh drift" shader background and glassmorphism cards.
-- 🎤 **Live Audio Recording**: Transcribe live lectures. *(Planned)*
+-  **Live Audio Recording**: Transcribe live lectures. *(Planned)*
 
 ---
 
@@ -107,7 +107,7 @@ StudyForge requires a Google Gemini API key to function.
 
 | Variable | Description | Required |
 | :--- | :--- | :--- |
-| \`VITE_GEMINI_API_KEY\` | Your Gemini API Key from Google AI Studio. | Yes |
+| \`VITE_GEMINI_API_KEY\` | Your API Key from Google AI Studio. | Yes |
 
 1. Copy the example file to create your local `.env` file:
    \`\`\`bash
